@@ -1,4 +1,4 @@
-type elem = S of string | I of string | N of string | B of string | P of string | NOTHING of string | QUIT of unit | ERROR of string
+type elem = S of string | I of string | N of string | B of string | P of string | NOTHING of string | ERROR of string
 
 let interpreter ( (inFile : string), (outFile : string )) : unit =
     
@@ -30,25 +30,7 @@ let interpreter ( (inFile : string), (outFile : string )) : unit =
   try ignore (int_of_string str); true
   with _ -> false
     
-    in 
-    
-    (*this just takes the 'string list' and returns the head as a string*)
-    let str s =
-       match s with
-       |[]-> "" 
-       |hd::tl-> hd 
-    in 
-   (*my original implementation for dealing with pushs would only push
-    everything besides the first word of pushs. e.g. pushs "hello world i love you"
-    would push world i love you.
-    This final impelemntation checks if the first char is a quotation mark and if so 
-    pushes the first word without the quotation mark, then the rest of the words *)
-    let rec build pushs =
-     match pushs with 
-     |[]-> ""
-     |hd::tl-> if (hd.[0] = '"') then (String.sub hd 1 (String.length hd - 1)) ^ " " ^ (build tl) 
-                                 else str (String.split_on_char '"' hd) ^ " "  ^ (build tl)   	     
- in
+    in  
  
  let rec buildWQ pushs = 
  	match pushs with
@@ -63,54 +45,60 @@ let interpreter ( (inFile : string), (outFile : string )) : unit =
  	|_->false
  in
  
+ let ibtype comm = 
+ 		if (Stack.length st < 2) then Stack.push (ERROR ":error:") st 
+                 else (match (Stack.top st) with
+    				  |I i-> let a = Stack.pop st in (match (Stack.top st) with
+    							 		|I j-> let b = Stack.pop st in (match comm with 
+    							 					 		|"add"-> Stack.push (I (string_of_int((int_of_string i) + (int_of_string j)))) st;
+    							 					 		|"sub"-> Stack.push (I (string_of_int((int_of_string j) - (int_of_string i)))) st;
+    							 					 		|"mul"-> Stack.push (I (string_of_int((int_of_string i) * (int_of_string j)))) st; 
+    							 					 		|"div"-> if (i = "0") then begin Stack.push b st; Stack.push a st; 
+    							 					 					                     Stack.push (ERROR ":error:") st end 
+    							 					 				 else Stack.push (I(string_of_int((int_of_string j) / (int_of_string i)))) st; 
+    							 					 		|"rem"-> if (i = "0") then begin Stack.push b st; Stack.push a st; 
+    							 					 					                     Stack.push (ERROR ":error:") st end 
+    							 					 				 else Stack.push (I(string_of_int((int_of_string j) mod (int_of_string i)))) st;
+    							 					 		|"equal"-> if (i = j) then Stack.push (B ":true:") st 
+				 	  								                               else Stack.push (B ":false:") st
+				 	  								        |"lessThan"->if ((int_of_string j) < (int_of_string i)) then Stack.push (B ":true:") st 
+				 	  								                               else Stack.push (B ":false:") st
+				 	  								        |_-> Stack.push a st; Stack.push b st; Stack.push (ERROR ":error:") st)                   
+    							 	    |_-> Stack.push a st; Stack.push (ERROR ":error:") st; )  
+    			      |B b1-> let c = Stack.pop st in (match (Stack.top st) with
+    			      					 |B b2-> let d = Stack.pop st in (match comm with
+    			      								        |"and"-> if (boolean b1 && boolean b2) then Stack.push (B ":true:") st 
+				 	  								                                                    else Stack.push (B ":false:") st
+				 	  								        
+				 	  								        |"or"->  if (boolean b1 || boolean b2) then Stack.push (B ":true:") st 
+				 	  								                                                    else Stack.push (B ":false:")st                                       
+				 	  								        |_-> Stack.push c st; Stack.push d st; Stack.push (ERROR ":error:") st)
+    			      					 |_->Stack.push c st; Stack.push (ERROR ":error:") st)  							 		
+    				  |_-> Stack.push (ERROR ":error:") st;) 
  
+ in
  
      let oneComm com = 
      	match com with 
      	|"push"-> Stack.push (ERROR ":error:") st; ()
         
 (*------------------------------------------------------------------------------------------------------------------------------------------------*)            		   
-        |"pop"-> if (Stack.is_empty st) then begin Stack.push (ERROR ":error:") st end else begin Stack.pop st; () end
-(*------------------------------------------------------------------------------------------------------------------*)            		  								   
-        |"add"-> if (Stack.length st < 2) then Stack.push (ERROR ":error:") st 
-                 else (match (Stack.top st) with
-    				  |I i-> let a = Stack.pop st in (match (Stack.top st) with
-    							 					 |I j->  Stack.pop st; Stack.push (I (string_of_int((int_of_string i) + (int_of_string j)))) st;
-    							 				     |_-> Stack.push a st; Stack.push (ERROR ":error:") st; )    							 		
-    				  |_-> Stack.push (ERROR ":error:") st;) 
-(*-----------------------------------------------------------------------------------------------------------------------------------------------------*)    				
-        |"sub"-> if (Stack.length st < 2) then Stack.push (ERROR ":error:") st 
-            	 else (match (Stack.top st) with
-    				  |I i-> let s = Stack.pop st in (match (Stack.top st) with
-    							 		             |I j->  Stack.pop st; Stack.push (I (string_of_int((int_of_string j) - (int_of_string i)))) st;
-    							 		   			 |_-> Stack.push s st; Stack.push (ERROR ":error:") st;)    							 		
-    				  |_-> Stack.push (ERROR ":error:") st;)
-(*---------------------------------------------------------------------------------------------------------------------------------------------------------------*)    			|"mul"-> if (Stack.length st < 2) then Stack.push (ERROR ":error:") st  
-            	 else (match (Stack.top st) with
-    				  |I i-> let m = Stack.pop st in (match (Stack.top st) with
-    							 		   			 |I j->  Stack.pop st; Stack.push (I (string_of_int((int_of_string i) * (int_of_string j)))) st;
-    							 		   			 |_-> Stack.push m st; Stack.push (ERROR ":error:") st;)    							 		
-    				  |_-> Stack.push (ERROR ":error:") st;)	 								
-(*------------------------------------------------------------------------------------------------------------------------------------------------------------------*)    			|"div"-> if (Stack.length st < 2) then Stack.push (ERROR ":error:") st  
-            	 else (match (Stack.top st) with        		    								  		
-    				  |I i-> let d = Stack.pop st in (match (Stack.top st) with
-    							 					 |I j-> if (i = "0") then begin Stack.push d st; Stack.push (ERROR ":error:") st end
-    							 					        else begin Stack.pop st; Stack.push (I(string_of_int((int_of_string j) / (int_of_string i)))) st end
-    							 					 |_-> Stack.push d st; Stack.push (ERROR ":error:") st;)    							 		
-    				  |_-> Stack.push (ERROR ":error:") st;)								
-(*---------------------------------------------------------------------------------------------------------------------------------------------------------------------*)    			|"rem"-> if (Stack.length st < 2) then Stack.push (ERROR ":error:") st
-            	 else (match (Stack.top st) with        		    								  		
-    				  |I i-> let c = Stack.pop st in (match (Stack.top st) with
-    							 					 |I j-> if (i = "0") then begin Stack.push c st; Stack.push (ERROR ":error:") st; end
-    							 					        else begin Stack.pop st; Stack.push (I(string_of_int((int_of_string j) 
-    							 					                                                  mod (int_of_string i)))) st; end
-    							 					 |_-> Stack.push c st; Stack.push (ERROR ":error:") st;)    							 		
-    				  |_-> Stack.push (ERROR ":error:") st;)									 								
+        |"pop"-> if (Stack.is_empty st) then begin Stack.push (ERROR ":error:") st end else begin Stack.pop st; () end				 								
 (*--------------------------------------------------------------------------------------------------------------------------------------------------------------------*)    		|"neg"-> if(Stack.is_empty st) then Stack.push (ERROR ":error:") st  
 				 else (match (Stack.top st) with
 				 	  |I i-> Stack.pop st; Stack.push (I(string_of_int(-int_of_string(i)))) st
 				 	  |_-> Stack.push (ERROR ":error:") st)	
-(*----------------------------------------------------------------------------------------------------------------------------------------------------*)				 	  			|"swap"-> if(Stack.length st < 2) then Stack.push (ERROR ":error:") st
+(*----------------------------------------------------------------------------------------------------------------------------------------------------*)				 	  			|"add"-> ibtype "add"
+		|"sub"-> ibtype "sub"
+		|"mul"-> ibtype "mul"
+		|"div"-> ibtype "div"
+		|"rem"-> ibtype "rem"
+		|"equal"-> ibtype "equal"
+		|"lessThan"-> ibtype "lessThan"
+		|"and"-> ibtype "and"
+		|"or"-> ibtype "or" 
+		
+		|"swap"-> if(Stack.length st < 2) then Stack.push (ERROR ":error:") st
 				  else begin let t = Stack.pop st in let t1 = Stack.pop st in Stack.push t st; Stack.push t1 st; end
 (*----------------------------------------------------------------------------------------------------------------------------------------------------------*)
 		|"cat"-> if(Stack.length st < 2) then Stack.push (ERROR ":error:") st
@@ -119,44 +107,13 @@ let interpreter ( (inFile : string), (outFile : string )) : unit =
 				 	  								   |S s1-> Stack.pop st; Stack.push (S(s1 ^ s)) st
 				 	  								   |_-> Stack.push cat st; Stack.push (ERROR ":error:") st)
 				 	  |_-> Stack.push (ERROR ":error:") st) 
-(*-----------------------------------------------------------------------------------------------------------------------------------------------------------*)
-		|"and"-> if(Stack.length st < 2) then Stack.push (ERROR ":error:") st
-				 else (match (Stack.top st) with 
-				 	  |B b-> let and1 = Stack.pop st in (match (Stack.top st) with
-				 	  								   |B b1-> Stack.pop st; if (boolean b && boolean b1) then Stack.push (B ":true:") st 
-				 	  								                                                      else Stack.push (B ":false:") st
-				 	  								   |_-> Stack.push and1 st; Stack.push (ERROR ":error:") st)
-				 	  |_-> Stack.push (ERROR ":error:") st) 
-(*-------------------------------------------------------------------------------------------------------------------------------------------------------*)				 	  
-		|"or"-> if(Stack.length st < 2) then Stack.push (ERROR ":error:") st
-				else (match (Stack.top st) with 
-				 	  |B b-> let or1 = Stack.pop st in (match (Stack.top st) with
-				 	  								   |B b1-> Stack.pop st; if (boolean b || boolean b1) then Stack.push (B ":true:") st 
-				 	  								                                                      else Stack.push (B ":false:") st
-				 	  								   |_-> Stack.push or1 st; Stack.push (ERROR ":error:") st)
-				 	  |_-> Stack.push (ERROR ":error:") st) 
 (*------------------------------------------------------------------------------------------------------------------------------------------------------------*)		
 		|"not"->if(Stack.is_empty st) then Stack.push (ERROR ":error:") st
 				else (match (Stack.top st) with 
 				 	  |B b-> Stack.pop st; if(boolean b) then Stack.push (B ":false:") st
 				 	  					                 else Stack.push (B ":true:") st
 				 	  |_-> Stack.push (ERROR ":error:") st) 
-(*---------------------------------------------------------------------------------------------------------------------------------------------------*)				 	  				
-		|"equal"->if(Stack.length st < 2) then Stack.push (ERROR ":error:") st
-				  else (match (Stack.top st) with 
-				 	  |I i-> let equal = Stack.pop st in (match (Stack.top st) with
-				 	  								   |I i1-> Stack.pop st; if (i = i1) then Stack.push (B ":true:") st 
-				 	  								                                     else Stack.push (B ":false:") st
-				 	  								   |_-> Stack.push equal st; Stack.push (ERROR ":error:") st)
-				 	  |_-> Stack.push (ERROR ":error:") st) 
-(*------------------------------------------------------------------------------------------------------------------------------------------------------*)				 	  
-		|"lessThan"->if(Stack.length st < 2) then Stack.push (ERROR ":error:") st
-				     else (match (Stack.top st) with 
-				 	  |I i-> let lt = Stack.pop st in (match (Stack.top st) with
-				 	  								   |I i1-> Stack.pop st; if (i1 < i) then Stack.push (B ":true:") st 
-				 	  								                                     else Stack.push (B ":false:") st
-				 	  								   |_-> Stack.push lt st; Stack.push (ERROR ":error:") st)
-				 	  |_-> Stack.push (ERROR ":error:") st)
+(*---------------------------------------------------------------------------------------------------------------------------------------------------*)				 	  		
 	    |_->()
    in
     
@@ -168,8 +125,7 @@ let interpreter ( (inFile : string), (outFile : string )) : unit =
                |[]-> start tl
                |[a]-> oneComm a; start tl
 
-(*------------------------------------------------------------------------------------------------------------------------------------------------------------------*)    							 								
-    							 
+(*------------------------------------------------------------------------------------------------------------------------------------------------------------------*)    							 													 
     		   |[a;b]->  (match a with 
     		   			  |"push"-> if (b = ":error:" || b = ":unit:") then begin Stack.push (P b) st; start tl end 
     		   			  											   else begin Stack.push (ERROR ":error:") st; start tl end
@@ -204,4 +160,4 @@ let interpreter ( (inFile : string), (outFile : string )) : unit =
     	
     ;;
 (* use this line to test*)
-(* interpreter ("sample_input1.txt", "output.txt") *)
+ interpreter ("sample_input1.txt", "output.txt") 
